@@ -14,53 +14,42 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const videoFile = formData.get("video") as File | null;
 
-    // Also support JSON message for text chat fallback
     if (!videoFile) {
-      const body = await request.text();
-      let message = "";
-      try {
-        const json = JSON.parse(body);
-        message = json.message;
-      } catch {
-        return NextResponse.json({ error: "No video or message provided" }, { status: 400 });
-      }
-
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const result = await model.generateContent(message);
-      return NextResponse.json({ reply: result.response.text() });
+      return NextResponse.json({ error: "No video provided" }, { status: 400 });
     }
 
     // Convert video to base64
     const videoBuffer = await videoFile.arrayBuffer();
     const videoBase64 = Buffer.from(videoBuffer).toString("base64");
-    const mimeType = videoFile.type || "video/mp4";
+    const mimeType = (videoFile.type || "video/mp4") as string;
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const prompt = `تۆ AI JACK ی، متخەسیسی ژێرنووسی کوردی سۆرانی بە لاتین.
+    const prompt = `ئەم ڤیدیۆیە بە وردی گوێی لێ بگرە و تەواوی دیالۆگ و دەنگەکانی بنووسەرەوە.
 
-ئەم ڤیدیۆیە بە دقیق شیکاری بکە و ژێرنووسی تەواوت بنووسە بەم شێوەیە:
+یاسا و شێوەکار:
 
-١. دەنگی میوزیک و کاریگەری دەنگی: لە ناو () بنووسە بە کوردی
-   نمونە: (میوزیکێکی ئارام دەست پێدەکات)
+١. کاریگەری دەنگ و میوزیک → لە ناو () بنووسە بە کوردی
+نمونە: (muzikeki aram u hiwash dest pe dekat)
 
-٢. دیالۆگی ئەکتەرەکان: ناوی ئەکتەر: دەقی قسەکە
-   - ناوی ئەکتەر بە لاتینی بنووسە
-   - دەقی قسەکە بە لاتینی سۆرانی بنووسە
-   نمونە: Sanji: (be dengeki himen) Choper, yek shit le bir me ke...
+٢. دیالۆگی ئەکتەر → ناو: دەق
+- ناوی ئەکتەر: بە لاتینی
+- دەقی قسەکە: بە لاتینی سۆرانی
+نمونە: Sanji: (be dengeki himen u leserxo) Choper, yek shit le bir me ke...
 
-٣. کاریگەری دیکە لە ناو (): (dengey jigerechishani Sanji)
+٣. کاریگەری تایبەت → لە ناو () بنووسە
+نمونە: (dengey jigerechishani Sanji)
+نمونە: (dengey peyekan deit ke derawet)
 
-مەرجەکان:
-- هەموو دیالۆگەکان بە لاتینی سۆرانی بنووسە
-- ناوی ئەکتەرەکان بە لاتینی بنووسە
-- هیچ عەرەبی یان کوردی ئەڵفبای مەنووسە
-- زمان: تەنها لاتین
-- هەر ئەکتەرێک دانە دانە ناوی بنووسە
+٤. میوزیک گۆڕانی → لە ناو () بنووسە
+نمونە: (muzikeke be tewawi degoriit bo goraniyeki xira u behiz le jori fonk)
 
-وەڵامەکەت تەنها ژێرنووسەکان بن، هیچ ڕوونکردنەوەی تر مەنووسە.`;
+مەرجی گرنگ:
+- هەموو دەقەکان بە لاتین بنووسە، هیچ عەرەبی یان کوردی ئەڵفبا مەنووسە
+- هەر ئەکتەرێک بە ناوی خۆی دانە دانە
+- دەقی قسەکان وەک چۆن دەڵێن بنووسە
+- تەنها ژێرنووس، هیچ ڕوونکردنەوە یان تێبینی تر مەنووسە`;
 
     const result = await model.generateContent([
       {
@@ -69,17 +58,27 @@ export async function POST(request: NextRequest) {
           data: videoBase64,
         },
       },
-      prompt,
+      { text: prompt },
     ]);
 
     const reply = result.response.text();
     return NextResponse.json({ reply });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("AI JACK error:", error);
+
+    // Check if video is too large
+    const errMsg = error instanceof Error ? error.message : String(error);
+    if (errMsg.includes("too large") || errMsg.includes("size")) {
+      return NextResponse.json(
+        { reply: "ڤیدیۆکە زۆر گەورەیە. تکایە ڤیدیۆیەکی بچووکتر بنێرە (کەمتر لە 20MB)." },
+        { status: 200 }
+      );
+    }
+
     return NextResponse.json(
-      { error: "Failed to process video" },
-      { status: 500 }
+      { reply: "کێشەیەک روویدا. تکایە:\n١. ئینتەرنێتەکەت بپشکنە\n٢. ڤیدیۆیەکی بچووکتر هەوڵ بدە\n٣. دوبارە هەوڵ بدەرەوە" },
+      { status: 200 }
     );
   }
 }
