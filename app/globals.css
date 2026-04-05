@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ios-blue: #007AFF;
+  --ios-bg: #F2F2F7;
+  --ios-card: rgba(255, 255, 255, 0.72);
+  --ios-border: rgba(0, 0, 0, 0.08);
+  --ios-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  box-sizing: border-box;
+}
+
+html, body {
+  background: var(--ios-bg);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+
+/* iOS-style scrollbar */
+::-webkit-scrollbar {
+  width: 0px;
+}
+
+/* Glass card style */
+.glass-card {
+  background: var(--ios-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--ios-border);
+  box-shadow: var(--ios-shadow);
+}
+
+/* Smooth tap highlight removal for mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Textarea iOS fix */
+textarea {
+  -webkit-appearance: none;
+  resize: none;
+}
+
+/* Typing indicator dots */
+@keyframes bounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-6px); }
+}
+
+.typing-dot {
+  animation: bounce 1.2s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+/* Message bubble animations */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px) scale(0.95); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-20px) scale(0.95); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+.msg-user { animation: slideInRight 0.3s ease-out; }
+.msg-ai { animation: slideInLeft 0.3s ease-out; }
+
+/* Safe area for mobile notch */
+.safe-top { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
