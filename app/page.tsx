@@ -1,12 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Upload, Sparkles, Copy, Check, Film, Zap, ChevronRight } from "lucide-react";
-
-interface SubtitleResult {
-  raw: string;
-  lines: SubtitleLine[];
-}
+import { Upload, Copy, Check, Zap, ChevronRight, Sparkles } from "lucide-react";
 
 interface SubtitleLine {
   type: "action" | "dialogue" | "sound";
@@ -21,13 +16,9 @@ function parseSubtitles(raw: string): SubtitleLine[] {
     if (trimmed.startsWith("(") && trimmed.endsWith(")")) {
       return { type: "action", text: trimmed.slice(1, -1) };
     }
-    const dialogMatch = trimmed.match(/^([^:(]+):\s*(\(.*?\))?\s*(.+)/);
-    if (dialogMatch) {
-      return {
-        type: "dialogue",
-        speaker: dialogMatch[1].trim(),
-        text: ((dialogMatch[2] || "") + " " + dialogMatch[3]).trim(),
-      };
+    const m = trimmed.match(/^([^:(]{1,30}):\s*(.+)/);
+    if (m) {
+      return { type: "dialogue", speaker: m[1].trim(), text: m[2].trim() };
     }
     return { type: "sound", text: trimmed };
   });
@@ -35,459 +26,279 @@ function parseSubtitles(raw: string): SubtitleLine[] {
 
 export default function Home() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [videoPreview, setVideoPreview] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [result, setResult] = useState<SubtitleResult | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [raw, setRaw] = useState<string | null>(null);
+  const [lines, setLines] = useState<SubtitleLine[]>([]);
+  const [copied, setCopied] = useState(false);
+  const [drag, setDrag] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = useCallback((file: File) => {
-    if (!file.type.startsWith("video/")) return;
-    setVideoFile(file);
-    setResult(null);
-    const url = URL.createObjectURL(file);
-    setVideoPreview(url);
+  const pick = useCallback((f: File) => {
+    if (!f.type.startsWith("video/")) return;
+    setVideoFile(f);
+    setVideoUrl(URL.createObjectURL(f));
+    setRaw(null);
+    setLines([]);
+    setError(null);
   }, []);
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  };
-
-  const processVideo = async () => {
+  const submit = async () => {
     if (!videoFile) return;
-    setIsProcessing(true);
+    setLoading(true);
     setProgress(0);
+    setError(null);
 
-    const interval = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 85) { clearInterval(interval); return 85; }
-        return p + Math.random() * 6;
-      });
-    }, 500);
+    const ticker = setInterval(() => {
+      setProgress(p => p >= 88 ? 88 : p + Math.random() * 5);
+    }, 600);
 
     try {
-      const formData = new FormData();
-      formData.append("video", videoFile);
+      const fd = new FormData();
+      fd.append("video", videoFile);
 
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        body: formData,
-      });
+      const res = await fetch("/api/analyze", { method: "POST", body: fd });
+      const json = await res.json();
 
-      clearInterval(interval);
+      clearInterval(ticker);
       setProgress(100);
 
-      if (!response.ok) throw new Error("Processing failed");
-      const data = await response.json();
-      const raw = data.reply || "";
-      setResult({ raw, lines: parseSubtitles(raw) });
-    } catch {
-      clearInterval(interval);
+      if (json.error) throw new Error(json.error);
+      const text = json.reply || "";
+      setRaw(text);
+      setLines(parseSubtitles(text));
+    } catch (e) {
+      clearInterval(ticker);
       setProgress(0);
-      setResult({
-        raw: "کێشەیەک روویدا. تکایە دووبارە هەوڵ بدەرەوە.",
-        lines: [{ type: "sound", text: "کێشەیەک روویدا. تکایە دووبارە هەوڵ بدەرەوە." }],
-      });
+      setError(e instanceof Error ? e.message : "کێشەیەک روویدا");
     } finally {
-      setIsProcessing(false);
+      setLoading(false);
     }
   };
 
-  const copyToClipboard = async () => {
-    if (!result) return;
-    await navigator.clipboard.writeText(result.raw);
+  const copy = async () => {
+    if (!raw) return;
+    await navigator.clipboard.writeText(raw);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const reset = () => {
+    setVideoFile(null);
+    setVideoUrl(null);
+    setRaw(null);
+    setLines([]);
+    setError(null);
+    setProgress(0);
   };
 
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap');
+        *,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent;font-family:'Sora',-apple-system,sans-serif}
+        html,body{margin:0;padding:0;background:#0c0c12;color:#ede8df;-webkit-font-smoothing:antialiased}
+        ::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
 
-        :root {
-          --bg: #09090f;
-          --card: rgba(255,255,255,0.038);
-          --card-hover: rgba(255,255,255,0.06);
-          --border: rgba(255,255,255,0.07);
-          --border-lit: rgba(191,161,90,0.35);
-          --gold: #C9A84C;
-          --gold-light: #F0D98A;
-          --gold-dim: rgba(201,168,76,0.12);
-          --gold-glow: rgba(201,168,76,0.25);
-          --text: #EDE8DF;
-          --muted: rgba(237,232,223,0.4);
-          --green: #30D158;
-        }
-        *, *::before, *::after {
-          box-sizing: border-box;
-          -webkit-tap-highlight-color: transparent;
-          font-family: 'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
-        }
-        html, body {
-          margin: 0; padding: 0;
-          background: var(--bg);
-          color: var(--text);
-          -webkit-font-smoothing: antialiased;
-        }
-        ::-webkit-scrollbar { width: 2px; }
-        ::-webkit-scrollbar-thumb { background: var(--border-lit); border-radius: 2px; }
+        .card{background:rgba(255,255,255,.05);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.08);border-radius:24px}
+        .card-gold{background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.2);border-radius:24px}
 
-        .glass {
-          background: var(--card);
-          backdrop-filter: blur(28px) saturate(1.6);
-          -webkit-backdrop-filter: blur(28px) saturate(1.6);
-          border: 1px solid var(--border);
-        }
-        .gold-border { border-color: var(--border-lit) !important; }
+        .gold-text{background:linear-gradient(90deg,#7a5e1e,#f0d98a,#c9a84c,#f0d98a,#7a5e1e);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shine 5s linear infinite}
+        @keyframes shine{to{background-position:200% center}}
 
-        @keyframes orb-drift {
-          0%,100% { transform: translate(0,0) scale(1); }
-          33% { transform: translate(30px,-20px) scale(1.1); }
-          66% { transform: translate(-20px,15px) scale(0.95); }
-        }
-        @keyframes logo-pulse {
-          0%,100% { box-shadow: 0 0 0 0 var(--gold-glow), 0 8px 32px rgba(0,0,0,0.6); }
-          50% { box-shadow: 0 0 0 12px transparent, 0 8px 40px rgba(0,0,0,0.7); }
-        }
-        @keyframes shimmer {
-          0% { background-position: -200% center; }
-          100% { background-position: 200% center; }
-        }
-        @keyframes slide-up {
-          from { opacity: 0; transform: translateY(24px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fade-in {
-          from { opacity: 0; } to { opacity: 1; }
-        }
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); } to { transform: rotate(360deg); }
-        }
-        @keyframes progress-glow {
-          0%,100% { box-shadow: 0 0 8px var(--gold-glow); }
-          50% { box-shadow: 0 0 20px var(--gold-glow), 0 0 40px rgba(201,168,76,0.15); }
-        }
+        .btn-gold{background:linear-gradient(135deg,#7a5e1e,#c9a84c,#f0d98a,#c9a84c,#7a5e1e);background-size:250% 100%;animation:shine 4s linear infinite;color:#0a0800;font-weight:700;border:none;cursor:pointer;transition:transform .15s,box-shadow .15s;box-shadow:0 4px 20px rgba(201,168,76,.3)}
+        .btn-gold:active{transform:scale(.96)}
+        .btn-ghost{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:rgba(237,232,223,.5);cursor:pointer;transition:background .2s}
+        .btn-ghost:active{background:rgba(255,255,255,.08)}
 
-        .logo-icon {
-          animation: logo-pulse 3s ease-in-out infinite;
-        }
-        .gold-btn {
-          background: linear-gradient(135deg, #9A7B2E, #C9A84C, #F0D98A, #C9A84C, #9A7B2E);
-          background-size: 300% 100%;
-          animation: shimmer 4s linear infinite;
-          color: #0a0906;
-          font-weight: 700;
-          border: none;
-          transition: transform 0.2s, box-shadow 0.2s;
-          box-shadow: 0 4px 24px rgba(201,168,76,0.3), 0 1px 0 rgba(255,255,255,0.15) inset;
-        }
-        .gold-btn:active { transform: scale(0.97); }
-        .gold-btn:disabled { opacity: 0.4; animation: none; }
+        .drop-zone{border:1.5px dashed rgba(201,168,76,.3);border-radius:24px;background:rgba(201,168,76,.04);cursor:pointer;transition:all .2s}
+        .drop-zone.over{border-color:rgba(201,168,76,.7);background:rgba(201,168,76,.1)}
 
-        .gold-text {
-          background: linear-gradient(90deg, #9A7B2E, #F0D98A, #C9A84C, #F0D98A, #9A7B2E);
-          background-size: 200% auto;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          animation: shimmer 5s linear infinite;
-        }
+        .progress-bg{background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;height:5px}
+        .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#7a5e1e,#f0d98a,#7a5e1e);background-size:200% 100%;animation:shine 2s linear infinite;transition:width .4s ease}
 
-        .progress-track {
-          background: rgba(255,255,255,0.05);
-          border-radius: 99px;
-          overflow: hidden;
-        }
-        .progress-fill {
-          background: linear-gradient(90deg, #9A7B2E, #F0D98A, #9A7B2E);
-          background-size: 200% 100%;
-          animation: shimmer 2s linear infinite, progress-glow 2s ease-in-out infinite;
-          border-radius: 99px;
-          transition: width 0.4s ease;
-        }
+        @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,.4)}50%{box-shadow:0 0 0 10px rgba(201,168,76,0)}}
 
-        .subtitle-line { animation: slide-up 0.35s ease-out both; }
-        .feature-pill { animation: slide-up 0.5s ease-out both; }
-        .result-block { animation: slide-up 0.45s ease-out; }
-        
-        .orb {
-          position: fixed; border-radius: 50%;
-          filter: blur(90px); pointer-events: none; z-index: 0;
-          animation: orb-drift 18s ease-in-out infinite;
-        }
+        .animate-up{animation:slideUp .4s ease-out both}
+        .animate-fade{animation:fadeIn .4s ease-out both}
+        .logo-pulse{animation:pulse 3s ease-in-out infinite}
+        .spin{animation:spin 3s linear infinite}
 
-        .drag-over { border-color: var(--border-lit) !important; background: var(--gold-dim) !important; }
-        
-        .tag {
-          display: inline-flex; align-items: center; gap: 5px;
-          padding: 4px 10px; border-radius: 99px;
-          background: var(--gold-dim); border: 1px solid rgba(201,168,76,0.2);
-          color: var(--gold); font-size: 11px; font-weight: 500;
-          letter-spacing: 0.04em;
-        }
+        .line-action{color:rgba(201,168,76,.65);font-style:italic;font-size:12px}
+        .line-speaker{color:#f0d98a;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px}
+        .line-text{color:#ede8df;font-size:14px;line-height:1.6;direction:ltr}
+        .line-sound{color:rgba(237,232,223,.25);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+
+        .orb{position:fixed;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0}
       `}</style>
 
-      {/* Ambient orbs */}
-      <div className="orb" style={{ width: 500, height: 500, top: -100, right: -150, background: "radial-gradient(circle, rgba(201,168,76,0.18), transparent 70%)", animationDuration: "20s" }} />
-      <div className="orb" style={{ width: 400, height: 400, bottom: 50, left: -150, background: "radial-gradient(circle, rgba(80,100,200,0.12), transparent 70%)", animationDuration: "25s", animationDelay: "-8s" }} />
+      {/* Ambient background */}
+      <div className="orb" style={{width:500,height:500,top:-100,right:-120,background:"radial-gradient(circle,rgba(201,168,76,.15),transparent 65%)"}}/>
+      <div className="orb" style={{width:380,height:380,bottom:0,left:-100,background:"radial-gradient(circle,rgba(60,80,200,.1),transparent 65%)"}}/>
 
-      <div className="relative z-10 min-h-[100dvh] flex flex-col max-w-lg mx-auto px-5">
+      <div style={{position:"relative",zIndex:1,minHeight:"100dvh",display:"flex",flexDirection:"column",maxWidth:520,margin:"0 auto",padding:"0 18px"}}>
 
-        {/* ── HEADER ── */}
-        <header className="pt-16 pb-7">
-          <div className="flex items-center gap-4">
-            {/* Logo */}
-            <div
-              className="logo-icon w-[58px] h-[58px] rounded-[18px] flex items-center justify-center flex-shrink-0 relative overflow-hidden"
-              style={{
-                background: "linear-gradient(145deg, #1c1508, #2e2010)",
-                border: "1px solid rgba(201,168,76,0.5)",
-              }}
-            >
-              <div className="absolute inset-0" style={{
-                background: "linear-gradient(145deg, rgba(201,168,76,0.15) 0%, transparent 60%)"
-              }} />
-              <Zap size={24} style={{ color: "#F0D98A", position: "relative", zIndex: 1 }} />
+        {/* HEADER */}
+        <header style={{paddingTop:56,paddingBottom:28}}>
+          <div style={{display:"flex",alignItems:"center",gap:16}}>
+            <div className="logo-pulse" style={{width:56,height:56,borderRadius:18,background:"linear-gradient(145deg,#1c1508,#2e2010)",border:"1px solid rgba(201,168,76,.45)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 8px 24px rgba(0,0,0,.5)"}}>
+              <Zap size={22} color="#f0d98a"/>
             </div>
-
             <div>
-              <h1 className="text-[26px] font-bold leading-none gold-text tracking-tight">
-                AI JACK
-              </h1>
-              <p className="text-[11px] mt-1.5 tracking-[0.18em] uppercase" style={{ color: "var(--muted)" }}>
-                Kurdish Subtitle Engine
-              </p>
+              <h1 className="gold-text" style={{fontSize:28,fontWeight:700,margin:0,letterSpacing:"-.02em"}}>AI JACK</h1>
+              <p style={{fontSize:11,margin:"4px 0 0",letterSpacing:".18em",textTransform:"uppercase",color:"rgba(237,232,223,.35)"}}>Kurdish Subtitle Engine</p>
             </div>
           </div>
-
-          <p className="mt-5 text-[14px] leading-relaxed" style={{ color: "var(--muted)" }}>
-            ڤیدیۆت ناردەوە، AI JACK ژێرنووسی کوردی سۆرانی بە لاتینی بۆ دروست دەکات.
+          <p style={{marginTop:16,fontSize:13,lineHeight:1.7,color:"rgba(237,232,223,.45)"}}>
+            ڤیدیۆت بنێرە — AI JACK ژێرنووسی کوردی سۆرانی بە لاتینی بۆ دروست دەکات
           </p>
         </header>
 
-        {/* ── UPLOAD ── */}
-        <div
-          className={`glass rounded-[28px] overflow-hidden transition-all duration-300 ${dragOver ? "drag-over" : ""}`}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleDrop}
-        >
-          {videoPreview ? (
-            <div className="relative">
-              <video
-                src={videoPreview}
-                className="w-full"
-                style={{ maxHeight: 210, objectFit: "cover", display: "block" }}
-                controls playsInline
-              />
-              <button
-                onClick={() => { setVideoFile(null); setVideoPreview(null); setResult(null); }}
-                className="glass absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center text-white/60 hover:text-white text-xl font-light"
-              >×</button>
-              <div className="glass absolute bottom-3 left-3 rounded-xl px-3 py-1.5 flex items-center gap-2">
-                <Film size={11} style={{ color: "var(--gold)" }} />
-                <span className="text-[11px] text-white/60 max-w-[160px] truncate">{videoFile?.name}</span>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full p-9 flex flex-col items-center gap-5 active:scale-[0.98] transition-transform"
-            >
-              <div
-                className="w-[70px] h-[70px] rounded-[22px] flex items-center justify-center"
-                style={{
-                  background: "var(--gold-dim)",
-                  border: "1.5px dashed rgba(201,168,76,0.45)"
-                }}
-              >
-                <Upload size={26} style={{ color: "var(--gold)" }} />
-              </div>
-              <div className="text-center space-y-1.5">
-                <p className="font-semibold text-[15px]" style={{ color: "var(--text)" }}>
-                  ڤیدیۆیەک هەڵبژێرە
-                </p>
-                <p className="text-[12px]" style={{ color: "var(--muted)" }}>
-                  یان ئێرە دابنێ
-                </p>
-              </div>
-              <div className="flex gap-2">
-                {["MP4", "MOV", "AVI", "MKV"].map((f) => (
-                  <span key={f} className="tag">{f}</span>
-                ))}
-              </div>
-            </button>
-          )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="video/*"
-            className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-          />
-        </div>
-
-        {/* ── PROCESS BUTTON ── */}
-        {videoFile && !isProcessing && !result && (
-          <button
-            onClick={processVideo}
-            className="gold-btn mt-4 w-full py-[17px] rounded-[22px] flex items-center justify-center gap-3 text-[15px]"
-            style={{ animation: "slide-up 0.3s ease-out" }}
+        {/* UPLOAD ZONE */}
+        {!videoUrl ? (
+          <div
+            className={`drop-zone animate-up`}
+            style={{padding:"40px 24px",display:"flex",flexDirection:"column",alignItems:"center",gap:20}}
+            onClick={()=>fileRef.current?.click()}
+            onDragOver={e=>{e.preventDefault();setDrag(true)}}
+            onDragLeave={()=>setDrag(false)}
+            onDrop={e=>{e.preventDefault();setDrag(false);const f=e.dataTransfer.files[0];if(f)pick(f)}}
           >
-            <Sparkles size={18} />
-            ژێرنووسی کوردی دروست بکە
-            <ChevronRight size={16} />
-          </button>
-        )}
-
-        {/* ── PROCESSING ── */}
-        {isProcessing && (
-          <div className="glass gold-border mt-4 rounded-[28px] p-6 space-y-5" style={{ animation: "fade-in 0.3s ease-out" }}>
-            <div className="flex items-center gap-4">
-              <div
-                className="w-11 h-11 rounded-[14px] flex items-center justify-center flex-shrink-0"
-                style={{
-                  background: "var(--gold-dim)",
-                  border: "1px solid rgba(201,168,76,0.25)",
-                  animation: "spin-slow 4s linear infinite"
-                }}
-              >
-                <Zap size={18} style={{ color: "var(--gold-light)" }} />
-              </div>
-              <div>
-                <p className="font-semibold text-[14px]">AI JACK کار دەکات...</p>
-                <p className="text-[11px] mt-0.5" style={{ color: "var(--muted)" }}>
-                  شیکاری دەنگ · ناسینی ئەکتەر · وەرگێڕان
-                </p>
-              </div>
+            <div style={{width:72,height:72,borderRadius:22,background:"rgba(201,168,76,.1)",border:"1.5px dashed rgba(201,168,76,.4)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <Upload size={28} color="rgba(201,168,76,.8)"/>
             </div>
-            <div>
-              <div className="progress-track h-[5px]">
-                <div className="progress-fill h-full" style={{ width: `${progress}%` }} />
-              </div>
-              <div className="flex justify-between mt-2 text-[10px]" style={{ color: "var(--muted)" }}>
-                <span>ئامادەکاری...</span>
-                <span style={{ color: "var(--gold)" }}>{Math.round(progress)}%</span>
-              </div>
+            <div style={{textAlign:"center"}}>
+              <p style={{margin:0,fontWeight:600,fontSize:16,color:"#ede8df"}}>ڤیدیۆیەک هەڵبژێرە</p>
+              <p style={{margin:"6px 0 0",fontSize:12,color:"rgba(237,232,223,.4)"}}>یان ئێرە دابنێ</p>
             </div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
+              {["MP4","MOV","AVI","MKV"].map(f=>(
+                <span key={f} style={{padding:"4px 12px",borderRadius:99,background:"rgba(201,168,76,.08)",border:"1px solid rgba(201,168,76,.2)",color:"rgba(201,168,76,.8)",fontSize:11,fontWeight:500}}>{f}</span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="animate-up" style={{position:"relative",borderRadius:24,overflow:"hidden",border:"1px solid rgba(255,255,255,.08)"}}>
+            <video src={videoUrl} style={{width:"100%",maxHeight:220,objectFit:"cover",display:"block"}} controls playsInline/>
+            <button onClick={reset} style={{position:"absolute",top:10,right:10,width:32,height:32,borderRadius:"50%",background:"rgba(0,0,0,.6)",border:"none",color:"#fff",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
           </div>
         )}
 
-        {/* ── RESULTS ── */}
-        {result && (
-          <div className="result-block mt-4 space-y-4">
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full" style={{ background: "var(--gold)", boxShadow: "0 0 6px var(--gold-glow)" }} />
-                <span className="text-[13px] font-semibold" style={{ color: "var(--muted)" }}>
-                  ژێرنووسی کوردی
-                </span>
+        <input ref={fileRef} type="file" accept="video/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)pick(f)}}/>
+
+        {/* PROCESS BUTTON */}
+        {videoFile && !loading && !raw && (
+          <button className="btn-gold animate-up" onClick={submit} style={{marginTop:16,width:"100%",padding:"17px 24px",borderRadius:22,fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+            <Sparkles size={18}/>
+            ژێرنووسی کوردی دروست بکە
+            <ChevronRight size={16}/>
+          </button>
+        )}
+
+        {/* ERROR */}
+        {error && (
+          <div className="animate-up" style={{marginTop:16,padding:"16px 20px",borderRadius:20,background:"rgba(255,80,80,.08)",border:"1px solid rgba(255,80,80,.2)"}}>
+            <p style={{margin:0,fontSize:13,color:"rgba(255,120,120,.9)",lineHeight:1.6}}>{error}</p>
+            <button className="btn-gold" onClick={submit} style={{marginTop:12,padding:"10px 20px",borderRadius:14,fontSize:13}}>دووبارە هەوڵ بدە</button>
+          </div>
+        )}
+
+        {/* LOADING */}
+        {loading && (
+          <div className="card animate-fade" style={{marginTop:16,padding:"24px 20px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:20}}>
+              <div className="spin" style={{width:42,height:42,borderRadius:14,background:"rgba(201,168,76,.12)",border:"1px solid rgba(201,168,76,.2)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <Zap size={18} color="#f0d98a"/>
+              </div>
+              <div>
+                <p style={{margin:0,fontWeight:600,fontSize:14,color:"#ede8df"}}>AI JACK کار دەکات...</p>
+                <p style={{margin:"3px 0 0",fontSize:11,color:"rgba(237,232,223,.4)"}}>شیکاری دەنگ · ناسینی ئەکتەر · وەرگێڕان</p>
+              </div>
+            </div>
+            <div className="progress-bg">
+              <div className="progress-fill" style={{width:`${progress}%`}}/>
+            </div>
+            <p style={{margin:"8px 0 0",fontSize:11,color:"rgba(201,168,76,.7)",textAlign:"right"}}>{Math.round(progress)}%</p>
+          </div>
+        )}
+
+        {/* RESULTS */}
+        {raw && lines.length > 0 && (
+          <div className="animate-up" style={{marginTop:16,display:"flex",flexDirection:"column",gap:14}}>
+            {/* toolbar */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 2px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:"#c9a84c",boxShadow:"0 0 8px rgba(201,168,76,.5)"}}/>
+                <span style={{fontSize:13,fontWeight:600,color:"rgba(237,232,223,.6)"}}>ژێرنووسی کوردی</span>
               </div>
               <button
-                onClick={copyToClipboard}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-semibold transition-all active:scale-95"
-                style={{
-                  background: copied ? "rgba(48,209,88,0.1)" : "var(--gold-dim)",
-                  border: `1px solid ${copied ? "rgba(48,209,88,0.3)" : "rgba(201,168,76,0.25)"}`,
-                  color: copied ? "var(--green)" : "var(--gold)",
-                }}
+                onClick={copy}
+                style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:12,fontSize:12,fontWeight:600,background:copied?"rgba(48,209,88,.1)":"rgba(201,168,76,.1)",border:`1px solid ${copied?"rgba(48,209,88,.3)":"rgba(201,168,76,.25)"}`,color:copied?"#30d158":"#e8c97a",cursor:"pointer"}}
               >
-                {copied ? <Check size={13} /> : <Copy size={13} />}
+                {copied ? <Check size={13}/> : <Copy size={13}/>}
                 {copied ? "کۆپی کرا ✓" : "کۆپی بکە"}
               </button>
             </div>
 
-            {/* Lines */}
-            <div
-              className="glass rounded-[28px] overflow-hidden"
-              style={{ border: "1px solid var(--border)" }}
-            >
-              <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-                {result.lines.map((line, i) => (
-                  <div
-                    key={i}
-                    className="subtitle-line px-5 py-4"
-                    style={{ animationDelay: `${i * 0.04}s` }}
-                  >
-                    {line.type === "action" && (
-                      <p style={{ color: "rgba(201,168,76,0.6)", fontStyle: "italic", fontSize: 12 }}>
-                        ({line.text})
-                      </p>
-                    )}
-                    {line.type === "dialogue" && (
+            {/* lines */}
+            <div className="card" style={{overflow:"hidden"}}>
+              <div style={{padding:"4px"}}>
+                {lines.map((ln, i) => (
+                  <div key={i} style={{padding:"12px 16px",borderRadius:18,marginBottom:2,background:i%2===0?"rgba(255,255,255,.02)":"transparent",animation:`slideUp .3s ease-out ${i*.04}s both`}}>
+                    {ln.type==="action" && <p className="line-action" style={{margin:0}}>({ln.text})</p>}
+                    {ln.type==="dialogue" && (
                       <div>
-                        {line.speaker && (
-                          <p style={{ color: "var(--gold-light)", fontSize: 11, fontWeight: 600, marginBottom: 3, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                            {line.speaker}
-                          </p>
-                        )}
-                        <p style={{ color: "var(--text)", fontSize: 14, direction: "ltr", lineHeight: 1.6 }}>
-                          {line.text}
-                        </p>
+                        {ln.speaker && <p className="line-speaker" style={{margin:0}}>{ln.speaker}</p>}
+                        <p className="line-text" style={{margin:0}}>{ln.text}</p>
                       </div>
                     )}
-                    {line.type === "sound" && (
-                      <p style={{ color: "rgba(237,232,223,0.3)", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                        ♪ {line.text}
-                      </p>
-                    )}
+                    {ln.type==="sound" && <p className="line-sound" style={{margin:0}}>♪ {ln.text}</p>}
                   </div>
                 ))}
               </div>
             </div>
 
-            <button
-              onClick={() => { setResult(null); setVideoFile(null); setVideoPreview(null); }}
-              className="w-full py-4 rounded-[22px] text-[13px] font-medium transition-all active:scale-98 glass"
-              style={{ color: "var(--muted)", border: "1px solid var(--border)" }}
-            >
+            {/* raw toggle */}
+            <details style={{cursor:"pointer"}}>
+              <summary style={{fontSize:12,color:"rgba(237,232,223,.3)",padding:"8px 4px",listStyle:"none",display:"flex",alignItems:"center",gap:6}}>
+                <ChevronRight size={12}/> دەقی خام
+              </summary>
+              <pre style={{margin:"8px 0 0",padding:"16px",borderRadius:18,background:"rgba(0,0,0,.4)",border:"1px solid rgba(255,255,255,.06)",fontSize:11,color:"rgba(237,232,223,.4)",whiteSpace:"pre-wrap",direction:"ltr",fontFamily:"monospace",overflow:"auto"}}>{raw}</pre>
+            </details>
+
+            <button className="btn-ghost" onClick={reset} style={{width:"100%",padding:"14px",borderRadius:20,fontSize:13}}>
               ← ڤیدیۆی تر ئەبار بکە
             </button>
           </div>
         )}
 
-        {/* ── FEATURES (idle) ── */}
-        {!videoFile && !result && (
-          <div className="mt-7 space-y-3" style={{ animation: "fade-in 0.6s ease-out 0.2s both" }}>
-            <p className="text-[10px] tracking-[0.2em] uppercase text-center mb-4" style={{ color: "rgba(237,232,223,0.25)" }}>
-              تایبەتمەندیەکان
-            </p>
+        {/* FEATURES idle */}
+        {!videoFile && !raw && (
+          <div style={{marginTop:28,display:"flex",flexDirection:"column",gap:10}}>
+            <p style={{fontSize:10,letterSpacing:".2em",textTransform:"uppercase",textAlign:"center",color:"rgba(237,232,223,.2)",marginBottom:6}}>تایبەتمەندیەکان</p>
             {[
-              { icon: "🎬", title: "ناسینی ئەکتەر", desc: "دانە دانە ناوی ئەکتەرەکان دەنووسێت", delay: "0.3s" },
-              { icon: "🎵", title: "کاریگەری دەنگ", desc: "دەنگی میوزیک و کاریگەریەکان دەناسێت", delay: "0.4s" },
-              { icon: "📝", title: "سۆرانی لاتین", desc: "بە لاتینی وەک Slaw chony دەنووسێت", delay: "0.5s" },
-            ].map((f, i) => (
-              <div
-                key={i}
-                className="feature-pill glass flex items-center gap-4 p-4 rounded-[22px]"
-                style={{ animationDelay: f.delay }}
-              >
-                <div
-                  className="w-11 h-11 rounded-[14px] flex items-center justify-center text-xl flex-shrink-0"
-                  style={{ background: "var(--gold-dim)", border: "1px solid rgba(201,168,76,0.15)" }}
-                >
-                  {f.icon}
-                </div>
+              {icon:"🎬",title:"ناسینی ئەکتەر",desc:"دانە دانە ناوی ئەکتەرەکان دەنووسێت",d:".3s"},
+              {icon:"🎵",title:"کاریگەری دەنگ",desc:"میوزیک و کاریگەری دەنگی ڤیدیۆ",d:".4s"},
+              {icon:"📝",title:"سۆرانی لاتین",desc:"وەک: Slaw chony, chawt habu?",d:".5s"},
+            ].map((f,i)=>(
+              <div key={i} className="card" style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",animation:`slideUp .4s ease-out ${f.d} both`}}>
+                <div style={{width:44,height:44,borderRadius:14,background:"rgba(201,168,76,.08)",border:"1px solid rgba(201,168,76,.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{f.icon}</div>
                 <div>
-                  <p className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>{f.title}</p>
-                  <p className="text-[11px] mt-0.5" style={{ color: "var(--muted)" }}>{f.desc}</p>
+                  <p style={{margin:0,fontSize:13,fontWeight:600,color:"#ede8df"}}>{f.title}</p>
+                  <p style={{margin:"3px 0 0",fontSize:11,color:"rgba(237,232,223,.4)"}}>{f.desc}</p>
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* Footer */}
-        <footer className="mt-auto py-8 text-center">
-          <p style={{ fontSize: 10, letterSpacing: "0.18em", color: "rgba(237,232,223,0.15)", textTransform: "uppercase" }}>
-            AI JACK — Kurdish Subtitle Engine
-          </p>
+        <footer style={{marginTop:"auto",paddingTop:32,paddingBottom:28,textAlign:"center"}}>
+          <p style={{fontSize:10,letterSpacing:".18em",textTransform:"uppercase",color:"rgba(237,232,223,.12)",margin:0}}>AI JACK — Kurdish Subtitle Engine</p>
         </footer>
       </div>
     </>
