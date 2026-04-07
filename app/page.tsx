@@ -137,13 +137,10 @@ export default function Home() {
         .orb{position:fixed;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0}
       `}</style>
 
-      {/* Ambient background */}
       <div className="orb" style={{width:500,height:500,top:-100,right:-120,background:"radial-gradient(circle,rgba(201,168,76,.15),transparent 65%)"}}/>
       <div className="orb" style={{width:380,height:380,bottom:0,left:-100,background:"radial-gradient(circle,rgba(60,80,200,.1),transparent 65%)"}}/>
 
       <div style={{position:"relative",zIndex:1,minHeight:"100dvh",display:"flex",flexDirection:"column",maxWidth:520,margin:"0 auto",padding:"0 18px"}}>
-
-        {/* HEADER */}
         <header style={{paddingTop:56,paddingBottom:28}}>
           <div style={{display:"flex",alignItems:"center",gap:16}}>
             <div className="logo-pulse" style={{width:56,height:56,borderRadius:18,background:"linear-gradient(145deg,#1c1508,#2e2010)",border:"1px solid rgba(201,168,76,.45)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 8px 24px rgba(0,0,0,.5)"}}>
@@ -159,7 +156,6 @@ export default function Home() {
           </p>
         </header>
 
-        {/* UPLOAD ZONE */}
         {!videoUrl ? (
           <div
             className={`drop-zone animate-up`}
@@ -191,7 +187,6 @@ export default function Home() {
 
         <input ref={fileRef} type="file" accept="video/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)pick(f)}}/>
 
-        {/* PROCESS BUTTON */}
         {videoFile && !loading && !raw && (
           <button className="btn-gold animate-up" onClick={submit} style={{marginTop:16,width:"100%",padding:"17px 24px",borderRadius:22,fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
             <Sparkles size={18}/>
@@ -200,7 +195,6 @@ export default function Home() {
           </button>
         )}
 
-        {/* ERROR */}
         {error && (
           <div className="animate-up" style={{marginTop:16,padding:"16px 20px",borderRadius:20,background:"rgba(255,80,80,.08)",border:"1px solid rgba(255,80,80,.2)"}}>
             <p style={{margin:0,fontSize:13,color:"rgba(255,120,120,.9)",lineHeight:1.6}}>{error}</p>
@@ -208,7 +202,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* LOADING */}
         {loading && (
           <div className="card animate-fade" style={{marginTop:16,padding:"24px 20px"}}>
             <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:20}}>
@@ -227,10 +220,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* RESULTS */}
         {raw && lines.length > 0 && (
           <div className="animate-up" style={{marginTop:16,display:"flex",flexDirection:"column",gap:14}}>
-            {/* toolbar */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 2px"}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <div style={{width:8,height:8,borderRadius:"50%",background:"#c9a84c",boxShadow:"0 0 8px rgba(201,168,76,.5)"}}/>
@@ -245,7 +236,6 @@ export default function Home() {
               </button>
             </div>
 
-            {/* lines */}
             <div className="card" style={{overflow:"hidden"}}>
               <div style={{padding:"4px"}}>
                 {lines.map((ln, i) => (
@@ -263,7 +253,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* raw toggle */}
             <details style={{cursor:"pointer"}}>
               <summary style={{fontSize:12,color:"rgba(237,232,223,.3)",padding:"8px 4px",listStyle:"none",display:"flex",alignItems:"center",gap:6}}>
                 <ChevronRight size={12}/> دەقی خام
@@ -277,7 +266,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* FEATURES idle */}
         {!videoFile && !raw && (
           <div style={{marginTop:28,display:"flex",flexDirection:"column",gap:10}}>
             <p style={{fontSize:10,letterSpacing:".2em",textTransform:"uppercase",textAlign:"center",color:"rgba(237,232,223,.2)",marginBottom:6}}>تایبەتمەندیەکان</p>
@@ -303,4 +291,4 @@ export default function Home() {
       </div>
     </>
   );
-}
+      }
