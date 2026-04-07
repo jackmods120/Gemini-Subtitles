@@ -10,7 +10,10 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const videoFile = formData.get("video") as File | null;
+    const language = formData.get("language") as "latin" | "sorani" | null;
+
     if (!videoFile) return NextResponse.json({ error: "هیچ ڤیدیۆیەک نەگەیشتە سێرڤەر" }, { status: 400 });
+    if (!language) return NextResponse.json({ error: "هیچ زمانێک هەڵنەبژێردراوە" }, { status: 400 });
 
     // هەنگاوی 1: گوێگرتن لە ڤیدیۆکە
     const whisperData = new FormData();
@@ -31,13 +34,29 @@ export async function POST(request: NextRequest) {
     const rawText = json1.text;
     if (!rawText) return NextResponse.json({ error: "ڤیدیۆکە هیچ دەنگێکی تێدا نەبوو" }, { status: 400 });
 
-    // هەنگاوی 2: وەرگێڕان بە مێشکی بۆتەکەت
-    const prompt = `ئەم دەقە ڕێکبخەوە: "${rawText}"
-یاساکان:
-١. کاریگەری دەنگ: (muzikeki aram)
-٢. قسەی ئەکتەر: Sanji: Choper...
-٣. تەنها کوردی سۆرانی بە لاتینی.
-٤. تەنها ژێرنووسەکە بنووسە بێ هیچ قسەیەکی زیادە.`;
+    // هەنگاوی 2: دروستکردنی داواکاری زیرەک بەپێی زمانی هەڵبژێردراو
+    let prompt;
+    if (language === 'sorani') {
+      prompt = `تۆ پسپۆڕی دروستکردنی ژێرنووسی کوردی سۆرانیت. ئەم دەقەی خوارەوە کە لە ڤیدیۆیەک وەرگیراوە، بکە بە ژێرنووسێکی پڕۆفیشناڵ:
+"${rawText}"
+
+یاساکانی ژێرنووس:
+1.  **زمان**: بە تەواوی بە **کوردی سۆرانی (ئەلفبێی عەرەبی)** بینووسە.
+2.  **ناسینی ئەکتەر**: ئەگەر چەند کەسێک قسە دەکەن، ناوی قسەکەرەکە بنووسە. بۆ نموونە:
+    سارە: سڵاو، چۆنی؟
+3.  **کاریگەری دەنگ**: هەر دەنگێکی وەک (مۆسیقا، پێکەنین، تەقە) لەنێوان دوو کەوانەدا بنووسە. بۆ نموونە: (مۆسیقایەکی ئارام)
+4.  **پاک و خاوێنی**: تەنها و تەنها ژێرنووسەکە بنووسە. هیچ ڕوونکردنەوە و قسەیەکی زیادە مەکە.`;
+    } else { // زمانی لاتینی
+      prompt = `You are an expert Kurdish subtitle creator. Transcribe the following raw text from a video into professional subtitles:
+"${rawText}"
+
+Subtitle Rules:
+1.  **Language**: Write everything in **Kurdish Sorani using Latin letters only**. Do not use any Arabic/Kurdish script.
+2.  **Speaker Identification**: If multiple people are speaking, identify them. Example:
+    Sartip: Slaw, choni?
+3.  **Sound Effects**: Describe sounds like (music, laughter, gunshots) in parentheses. Example: (muzikeki aram)
+4.  **Clean Output**: Provide ONLY the subtitle text. No extra explanations or chit-chat.`;
+    }
 
     const res2 = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -46,8 +65,8 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
-        temperature: 0.7,
+        model: "llama-3.1-70b-versatile", // مۆدێلە زۆر زیرەک و بەهێزەکە
+        temperature: 0.4,
         messages: [{ role: "user", content: prompt }]
       }),
     });
