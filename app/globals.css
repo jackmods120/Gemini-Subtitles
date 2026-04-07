@@ -3,21 +3,24 @@
 @tailwind utilities;
 
 :root {
-  --ios-blue: #007AFF;
-  --ios-bg: #F2F2F7;
-  --ios-card: rgba(255, 255, 255, 0.72);
-  --ios-border: rgba(0, 0, 0, 0.08);
-  --ios-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  /* ڕەنگەکان گۆڕدراون بۆ ڕەش و ئاڵتونی */
+  --ios-blue: #c9a84c;
+  --ios-bg: #0c0c12;
+  --ios-card: rgba(255, 255, 255, 0.05);
+  --ios-border: rgba(255, 255, 255, 0.08);
+  --ios-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 * {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html, body {
   background: var(--ios-bg);
+  color: #ede8df; /* ڕەنگی تێکست بۆ کرا بە سپی/کرێمی */
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
 }
 
@@ -33,11 +36,6 @@ html, body {
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--ios-border);
   box-shadow: var(--ios-shadow);
-}
-
-/* Smooth tap highlight removal for mobile */
-* {
-  -webkit-tap-highlight-color: transparent;
 }
 
 /* Textarea iOS fix */
