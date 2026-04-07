@@ -12,8 +12,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ku" dir="rtl">
-      {/* لێرەدا ڕەنگەکەمان کرد بە ڕەش */}
-      <body className="bg-[#0c0c12] text-[#ede8df]">
+      <body className="bg-[#0c0c12] text-[#ede8df] min-h-screen">
         {children}
       </body>
     </html>
