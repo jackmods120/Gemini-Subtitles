@@ -15,7 +15,6 @@ export async function POST(request: NextRequest) {
     if (!videoFile) return NextResponse.json({ error: "هیچ ڤیدیۆیەک نەگەیشتە سێرڤەر" }, { status: 400 });
     if (!language) return NextResponse.json({ error: "هیچ زمانێک هەڵنەبژێردراوە" }, { status: 400 });
 
-    // هەنگاوی 1: گوێگرتن لە ڤیدیۆکە
     const whisperData = new FormData();
     whisperData.append("file", videoFile);
     whisperData.append("model", "whisper-large-v3");
@@ -36,7 +35,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "ڤیدیۆکە هیچ دەنگ و قسەیەکی تێدا نەبوو" }, { status: 400 });
     }
 
-    // فەرمانە زیرەکەکەی پێشترمان هەر بەکاردێنینەوە
     const systemPrompt = `You are AI JACK, a world-class Kurdish subtitling expert. Follow the rules with extreme precision.`;
     
     let userPrompt;
@@ -49,7 +47,7 @@ Raw Text: "${rawText}"
 3.  **Sound Effects:** Enclose non-dialogue sounds in parentheses. Example: (مۆسیقایەکی ئارام).
 4.  **NO EXTRA TEXT:** Your entire output must be ONLY the formatted subtitle. Do not add any greetings or explanations.
 Final Subtitle Output:`;
-    } else { // زمانی لاتینی
+    } else { 
       userPrompt = `Transcribe the following text into professional Kurdish Sorani subtitles using ONLY Latin letters.
 Raw Text: "${rawText}"
 **STRICT RULES:**
@@ -67,8 +65,7 @@ Final Subtitle Output:`;
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        // ============== گۆڕانکاری کۆتایی لێرەدایە ================
-        // بەکارهێنانی بەهێزترین مۆدێلی بەردەست و سەقامگیر
+        // دڵنیابە ئەم هێڵە لای تۆش ئاوایە
         model: "llama3-70b-8192", 
         temperature: 0.2,
         messages: [
