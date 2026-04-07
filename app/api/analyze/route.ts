@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     if (!videoFile) return NextResponse.json({ error: "هیچ ڤیدیۆیەک نەگەیشتە سێرڤەر" }, { status: 400 });
     if (!language) return NextResponse.json({ error: "هیچ زمانێک هەڵنەبژێردراوە" }, { status: 400 });
 
-    // هەنگاوی 1: گوێگرتن لە ڤیدیۆکە (وەک خۆیەتی)
+    // هەنگاوی 1: گوێگرتن لە ڤیدیۆکە
     const whisperData = new FormData();
     whisperData.append("file", videoFile);
     whisperData.append("model", "whisper-large-v3");
@@ -42,19 +42,17 @@ export async function POST(request: NextRequest) {
 
 یاساکانی ژێرنووس:
 1.  **زمان**: بە تەواوی بە **کوردی سۆرانی (ئەلفبێی عەرەبی)** بینووسە.
-2.  **ناسینی ئەکتەر**: ئەگەر چەند کەسێک قسە دەکەن، ناوی قسەکەرەکە بنووسە. بۆ نموونە:
-    سارە: سڵاو، چۆنی؟
-3.  **کاریگەری دەنگ**: هەر دەنگێکی وەک (مۆسیقا، پێکەنین، تەقە) لەنێوان دوو کەوانەدا بنووسە. بۆ نموونە: (مۆسیقایەکی ئارام)
-4.  **پاک و خاوێنی**: تەنها و تەنها ژێرنووسەکە بنووسە. هیچ ڕوونکردنەوە و قسەیەکی زیادە مەکە.`;
+2.  **ناسینی ئەکتەر**: ناوی قسەکەرەکە بنووسە. نموونە: سارە: سڵاو، چۆنی؟
+3.  **کاریگەری دەنگ**: لەنێوان دوو کەوانەدا بنووسە. نموونە: (مۆسیقایەکی ئارام)
+4.  **پاک و خاوێنی**: تەنها ژێرنووسەکە بنووسە. هیچ ڕوونکردنەوەیەک مەکە.`;
     } else { // زمانی لاتینی
-      prompt = `You are an expert Kurdish subtitle creator. Transcribe the following raw text from a video into professional subtitles:
+      prompt = `You are an expert Kurdish subtitle creator. Transcribe the following raw text into professional subtitles:
 "${rawText}"
 
-Subtitle Rules:
+Rules:
 1.  **Language**: Write everything in **Kurdish Sorani using Latin letters only**.
-2.  **Speaker Identification**: If multiple people are speaking, identify them. Example:
-    Sartip: Slaw, choni?
-3.  **Sound Effects**: Describe sounds like (music, laughter) in parentheses. Example: (muzikeki aram)
+2.  **Speaker Identification**: Identify speakers. Example: Sartip: Slaw, choni?
+3.  **Sound Effects**: Describe sounds in parentheses. Example: (muzikeki aram)
 4.  **Clean Output**: Provide ONLY the subtitle text. No extra explanations.`;
     }
 
@@ -65,9 +63,10 @@ Subtitle Rules:
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        // ============== لێرەدا ناوی مۆدێلەکە گۆڕدرا بۆ نوێیەکە ==============
-        model: "llama3-70b-8192", 
-        temperature: 0.4,
+        // ============== گۆڕانکارییەکە لێرەدایە ================
+        // بەکارهێنانی هەمان مۆدێلی خێرا و سەقامگیری تیلیگرام بۆتەکەت
+        model: "llama-3.1-8b-instant",
+        temperature: 0.5,
         messages: [{ role: "user", content: prompt }]
       }),
     });
@@ -82,4 +81,4 @@ Subtitle Rules:
   } catch (err: any) {
     return NextResponse.json({ error: `هەڵەی گشتی: ${err.message}` }, { status: 500 });
   }
-}
+      }
