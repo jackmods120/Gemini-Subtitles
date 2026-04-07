@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     if (!videoFile) return NextResponse.json({ error: "هیچ ڤیدیۆیەک نەگەیشتە سێرڤەر" }, { status: 400 });
     if (!language) return NextResponse.json({ error: "هیچ زمانێک هەڵنەبژێردراوە" }, { status: 400 });
 
-    // هەنگاوی 1: گوێگرتن لە ڤیدیۆکە
+    // هەنگاوی 1: گوێگرتن لە ڤیدیۆکە (وەک خۆیەتی)
     const whisperData = new FormData();
     whisperData.append("file", videoFile);
     whisperData.append("model", "whisper-large-v3");
@@ -51,11 +51,11 @@ export async function POST(request: NextRequest) {
 "${rawText}"
 
 Subtitle Rules:
-1.  **Language**: Write everything in **Kurdish Sorani using Latin letters only**. Do not use any Arabic/Kurdish script.
+1.  **Language**: Write everything in **Kurdish Sorani using Latin letters only**.
 2.  **Speaker Identification**: If multiple people are speaking, identify them. Example:
     Sartip: Slaw, choni?
-3.  **Sound Effects**: Describe sounds like (music, laughter, gunshots) in parentheses. Example: (muzikeki aram)
-4.  **Clean Output**: Provide ONLY the subtitle text. No extra explanations or chit-chat.`;
+3.  **Sound Effects**: Describe sounds like (music, laughter) in parentheses. Example: (muzikeki aram)
+4.  **Clean Output**: Provide ONLY the subtitle text. No extra explanations.`;
     }
 
     const res2 = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -65,7 +65,8 @@ Subtitle Rules:
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "llama-3.1-70b-versatile", // مۆدێلە زۆر زیرەک و بەهێزەکە
+        // ============== لێرەدا ناوی مۆدێلەکە گۆڕدرا بۆ نوێیەکە ==============
+        model: "llama3-70b-8192", 
         temperature: 0.4,
         messages: [{ role: "user", content: prompt }]
       }),
