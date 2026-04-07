@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
-export const maxDuration = 60; // کات بۆ ٦٠ چرکە زیادکراوە چونکە مۆدێلە گەورەکە کەمێک زیاتری پێدەچێت
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     if (!videoFile) return NextResponse.json({ error: "هیچ ڤیدیۆیەک نەگەیشتە سێرڤەر" }, { status: 400 });
     if (!language) return NextResponse.json({ error: "هیچ زمانێک هەڵنەبژێردراوە" }, { status: 400 });
 
-    // هەنگاوی یەکەم: گوێگرتن لە ڤیدیۆکە (بێ گۆڕانکاری)
+    // هەنگاوی 1: گوێگرتن لە ڤیدیۆکە
     const whisperData = new FormData();
     whisperData.append("file", videoFile);
     whisperData.append("model", "whisper-large-v3");
@@ -36,39 +36,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "ڤیدیۆکە هیچ دەنگ و قسەیەکی تێدا نەبوو" }, { status: 400 });
     }
 
-    // ================== فەرمانی نوێ و زۆر زیرەک بۆ AI ==================
-    const systemPrompt = `You are AI JACK, a world-class Kurdish subtitling expert. Your sole purpose is to convert raw transcribed text into perfectly formatted, accurate subtitles. Follow the rules with extreme precision.`;
+    // فەرمانە زیرەکەکەی پێشترمان هەر بەکاردێنینەوە
+    const systemPrompt = `You are AI JACK, a world-class Kurdish subtitling expert. Follow the rules with extreme precision.`;
     
     let userPrompt;
     if (language === 'sorani') {
       userPrompt = `Transcribe the following text into professional Kurdish Sorani subtitles using Arabic script.
-
 Raw Text: "${rawText}"
-
 **STRICT RULES:**
 1.  **Output Language:** ONLY Kurdish Sorani with Arabic script (e.g., "سڵاو، چۆنی؟").
-2.  **Speaker Identification:** Identify speakers clearly. Example:
-    سارە: ئەمە نموونەیەکە.
-3.  **Sound Effects:** Enclose all non-dialogue sounds in parentheses. Example: (مۆسیقایەکی ئارام), (پێکەنین). If there is only music and no speech, just write (مۆسیقا).
-4.  **DO NOT HALLUCINATE:** Do not invent dialogue or speakers. Transcribe only what is provided.
-5.  **NO EXTRA TEXT:** Your entire output must be ONLY the formatted subtitle. Do not add any greetings, explanations, or comments like "فەرموو ژێرنووسەکەت".
-6.  **ACCURACY IS CRITICAL:** Ensure the final text is a perfect and natural-sounding Kurdish Sorani transcription.
-
+2.  **Speaker Identification:** Identify speakers clearly. Example: سارە: ئەمە نموونەیەکە.
+3.  **Sound Effects:** Enclose non-dialogue sounds in parentheses. Example: (مۆسیقایەکی ئارام).
+4.  **NO EXTRA TEXT:** Your entire output must be ONLY the formatted subtitle. Do not add any greetings or explanations.
 Final Subtitle Output:`;
     } else { // زمانی لاتینی
       userPrompt = `Transcribe the following text into professional Kurdish Sorani subtitles using ONLY Latin letters.
-
 Raw Text: "${rawText}"
-
 **STRICT RULES:**
-1.  **Output Language:** ONLY Kurdish Sorani with Latin letters (e.g., "Slaw, choni?"). Do not use any letters with diacritics like 'î' or 'û'.
-2.  **Speaker Identification:** Identify speakers clearly. Example:
-    Sara: Eme nmuneyeke.
-3.  **Sound Effects:** Enclose all non-dialogue sounds in parentheses. Example: (muzikeki aram), (pekanin). If there is only music and no speech, just write (muzik).
-4.  **DO NOT HALLUCINATE:** Do not invent dialogue or speakers. Transcribe only what is provided.
-5.  **NO EXTRA TEXT:** Your entire output must be ONLY the formatted subtitle. Do not add any greetings, explanations, or comments like "Here are your subtitles".
-6.  **ACCURACY IS CRITICAL:** Ensure the final text is a perfect and natural-sounding Kurdish Sorani (Latin) transcription.
-
+1.  **Output Language:** ONLY Kurdish Sorani with Latin letters (e.g., "Slaw, choni?").
+2.  **Speaker Identification:** Identify speakers clearly. Example: Sara: Eme nmuneyeke.
+3.  **Sound Effects:** Enclose non-dialogue sounds in parentheses. Example: (muzikeki aram).
+4.  **NO EXTRA TEXT:** Your entire output must be ONLY the formatted subtitle. No extra explanations.
 Final Subtitle Output:`;
     }
 
@@ -79,9 +67,10 @@ Final Subtitle Output:`;
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        // ============== گۆڕانکاری سەرەکی: بەکارهێنانی مێشکی گەورە ==============
-        model: "llama-3.1-405b-reasoning",
-        temperature: 0.2, // پلەی گەرمی کەمکراوەتەوە بۆ وردبینی زیاتر
+        // ============== گۆڕانکاری کۆتایی لێرەدایە ================
+        // بەکارهێنانی بەهێزترین مۆدێلی بەردەست و سەقامگیر
+        model: "llama3-70b-8192", 
+        temperature: 0.2,
         messages: [
             { "role": "system", "content": systemPrompt },
             { "role": "user", "content": userPrompt }
